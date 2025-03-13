@@ -1,4 +1,6 @@
-import { useState } from 'react';
+//new edit jissin protected route
+
+import { useState,useEffect} from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { LogIn } from 'lucide-react';
@@ -11,6 +13,10 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from './firebase.js';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+
+
 {/*ECG ANALYZER IS THE FIREBASE PROJECT NAME*/}
 export function Login() {
   const [email, setEmail] = useState('');
@@ -45,7 +51,7 @@ export function Login() {
       await signInWithEmailAndPassword(auth, email, password);
       toast.success('Logged in successfully!');
       console.log('User logged in successfully');
-      window.location.href="/dashboard"
+      navigate("/dashboard")
     } catch (error: any) {
       const errorCode = error.code;
       switch (errorCode) {
@@ -72,7 +78,14 @@ export function Login() {
 
     setIsLoading(false);
   };
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
+  useEffect(() => {
+    if (user) {
+      navigate("/dashboard");
+    }
+  }, [user, navigate]);
   return (
     <div className="flex min-h-screen">
       <ToastContainer />
@@ -128,12 +141,6 @@ export function Login() {
                 </label>
               </div>
 
-              <a
-                href="#"
-                className="text-sm font-medium text-blue-600 hover:text-blue-500"
-              >
-                Forgot password?
-              </a>
             </div>
 
             <Button type="submit" className="w-full" disabled={isLoading}>
