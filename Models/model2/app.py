@@ -13,9 +13,25 @@ import base64
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 from docx.shared import RGBColor
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 CORS(app)
+
+# Database configuration
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ecg_analysis.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+
+# ECG Analysis History Model
+class ECGAnalysis(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    timestamp = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    report = db.Column(db.Text, nullable=False)
+    document_base64 = db.Column(db.Text, nullable=False)
+
+with app.app_context():
+    db.create_all()
 
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
@@ -193,6 +209,14 @@ def analyze_ecg():
             # Convert to base64
             doc_base64 = base64.b64encode(doc_stream.getvalue()).decode('utf-8')
             
+            # Save to database
+            analysis = ECGAnalysis(
+                report=ecg_details,
+                document_base64=doc_base64
+            )
+            db.session.add(analysis)
+            db.session.commit()
+            
             # Prepare response
             result = {
                 "report": ecg_details,
@@ -208,6 +232,20 @@ def analyze_ecg():
             return jsonify({'error': str(e)}), 500
 
     return jsonify({'error': 'Invalid file type'}), 400
+
+@app.route('/analysis-history', methods=['GET'])
+def get_analysis_history():
+    try:
+        analyses = ECGAnalysis.query.order_by(ECGAnalysis.timestamp.desc()).all()
+        history = [{
+            'id': analysis.id,
+            'timestamp': analysis.timestamp.isoformat(),
+            'report': analysis.report,
+            'document_base64': analysis.document_base64
+        } for analysis in analyses]
+        return jsonify(history)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
